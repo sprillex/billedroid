@@ -51,10 +51,16 @@ object NetworkModule {
     ): Retrofit {
         val contentType = "application/json".toMediaType()
         return Retrofit.Builder()
-            .baseUrl("http://127.0.0.1:8080/") // Default base URL, configurable via settings
+            .baseUrl("http://127.0.0.1:8080/")
             .client(okHttpClient)
             .addConverterFactory(json.asConverterFactory(contentType))
             .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideBilleApiService(retrofit: Retrofit): com.bille.android.data.remote.api.BilleApiService {
+        return retrofit.create(com.bille.android.data.remote.api.BilleApiService::class.java)
     }
 
     @Provides

@@ -49,12 +49,12 @@ Rules & Constraints:
         }
         val request = GeminiRequest(
             systemInstruction = GeminiSystemInstruction(
-                parts = listOf(GeminiPart.TextPart(SYSTEM_PROMPT))
+                parts = listOf(GeminiPart(text = SYSTEM_PROMPT))
             ),
             contents = listOf(
                 GeminiContent(
                     role = "user",
-                    parts = listOf(GeminiPart.TextPart(userPrompt))
+                    parts = listOf(GeminiPart(text = userPrompt))
                 )
             ),
             generationConfig = GeminiGenerationConfig(

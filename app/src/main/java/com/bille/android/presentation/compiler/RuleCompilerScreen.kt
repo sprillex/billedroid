@@ -100,9 +100,7 @@ fun RuleCompilerScreen(
             is CompilerUiState.ReviewCard -> {
                 RuleReviewCard(
                     rule = state.rule,
-                    onApproveAndSign = {
-                        // Intent signing & dispatch will trigger in next step
-                    },
+                    onApproveAndSign = { viewModel.approveAndSignRule(state.rule) },
                     onReject = { viewModel.resetState() }
                 )
             }

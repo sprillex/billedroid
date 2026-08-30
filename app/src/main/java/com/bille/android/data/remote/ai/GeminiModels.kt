@@ -28,15 +28,10 @@ data class GeminiContent(
 )
 
 @Serializable
-sealed class GeminiPart {
-    @Serializable
-    data class TextPart(val text: String) : GeminiPart()
-
-    @Serializable
-    data class InlineDataPart(
-        @SerialName("inline_data") val inlineData: InlineData
-    ) : GeminiPart()
-}
+data class GeminiPart(
+    val text: String? = null,
+    @SerialName("inline_data") val inlineData: InlineData? = null
+)
 
 @Serializable
 data class InlineData(

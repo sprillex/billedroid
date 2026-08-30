@@ -3,6 +3,8 @@ package com.bille.android.presentation.compiler
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bille.android.data.remote.ai.GeminiCompilerRepository
+import com.bille.android.data.repository.DeviceRepository
+import com.bille.android.data.repository.RuleRepository
 import com.bille.android.domain.model.BilleRule
 import com.bille.android.domain.validator.ValidationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,7 +24,9 @@ sealed class CompilerUiState {
 
 @HiltViewModel
 class RuleCompilerViewModel @Inject constructor(
-    private val geminiRepository: GeminiCompilerRepository
+    private val geminiRepository: GeminiCompilerRepository,
+    private val deviceRepository: DeviceRepository,
+    private val ruleRepository: RuleRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<CompilerUiState>(CompilerUiState.Idle)
@@ -51,6 +55,29 @@ class RuleCompilerViewModel @Inject constructor(
                     _uiState.value = CompilerUiState.Error(result.error)
                 }
             }
+        }
+    }
+
+    fun approveAndSignRule(rule: BilleRule) {
+        viewModelScope.launch {
+            _uiState.value = CompilerUiState.Compiling
+            val regResult = deviceRepository.registerDevice()
+            regResult.fold(
+                onSuccess = {
+                    val installResult = ruleRepository.installRule(rule)
+                    installResult.fold(
+                        onSuccess = {
+                            _uiState.value = CompilerUiState.RuleInstalled
+                        },
+                        onFailure = { error ->
+                            _uiState.value = CompilerUiState.Error("Rule installation failed: ${error.localizedMessage ?: error.message}")
+                        }
+                    )
+                },
+                onFailure = { error ->
+                    _uiState.value = CompilerUiState.Error("Device key registration failed: ${error.localizedMessage ?: error.message}")
+                }
+            )
         }
     }
 
