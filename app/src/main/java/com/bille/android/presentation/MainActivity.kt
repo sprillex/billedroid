@@ -32,10 +32,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun BilleHomeScreen(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = "bill-e Companion Terminal", style = MaterialTheme.typography.headlineMedium)
-    }
+    val viewModel: com.bille.android.presentation.compiler.RuleCompilerViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    com.bille.android.presentation.compiler.RuleCompilerScreen(
+        viewModel = viewModel,
+        modifier = modifier
+    )
 }

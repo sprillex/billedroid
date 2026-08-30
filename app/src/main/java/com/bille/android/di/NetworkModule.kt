@@ -56,4 +56,23 @@ object NetworkModule {
             .addConverterFactory(json.asConverterFactory(contentType))
             .build()
     }
+
+    @Provides
+    @Singleton
+    fun provideGeminiApiService(
+        json: Json
+    ): com.bille.android.data.remote.ai.GeminiApiService {
+        val contentType = "application/json".toMediaType()
+        val plainOkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
+
+        return Retrofit.Builder()
+            .baseUrl("https://generativelanguage.googleapis.com/")
+            .client(plainOkHttpClient)
+            .addConverterFactory(json.asConverterFactory(contentType))
+            .build()
+            .create(com.bille.android.data.remote.ai.GeminiApiService::class.java)
+    }
 }
