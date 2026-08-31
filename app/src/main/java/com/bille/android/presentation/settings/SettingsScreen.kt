@@ -45,7 +45,7 @@ fun SettingsScreen(
         OutlinedTextField(
             value = serverUrl,
             onValueChange = { viewModel.updateServerUrl(it) },
-            label = { Text("bill-e Daemon URL") },
+            label = { Text("bill-e Daemon Base URL") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
