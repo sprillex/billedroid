@@ -36,6 +36,10 @@ import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.platform.LocalContext
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 
 @Composable
 fun RuleCompilerScreen(
@@ -51,7 +55,7 @@ fun RuleCompilerScreen(
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val spokenText: String? =
-                result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.get(0)
+                result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
             if (spokenText != null) {
                 promptText = spokenText
             }
@@ -94,7 +98,11 @@ fun RuleCompilerScreen(
                             RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
                         )
                     }
-                    speechRecognizerLauncher.launch(intent)
+                    try {
+                        speechRecognizerLauncher.launch(intent)
+                    } catch (e: android.content.ActivityNotFoundException) {
+                        // Ignore if STT is not supported on the device
+                    }
                 }) {
                     Text("🎤")
                 }
@@ -159,6 +167,8 @@ fun RuleReviewCard(
     onReject: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
     Card(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         modifier = modifier.fillMaxWidth()
@@ -214,7 +224,39 @@ fun RuleReviewCard(
                     Text("Reject")
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = onApproveAndSign) {
+                Button(onClick = {
+                    var currentContext = context
+                    while (currentContext is android.content.ContextWrapper) {
+                        if (currentContext is FragmentActivity) break
+                        currentContext = currentContext.baseContext
+                    }
+
+                    val fragmentActivity = currentContext as? FragmentActivity
+                    if (fragmentActivity != null) {
+                        val executor = ContextCompat.getMainExecutor(context)
+                        val biometricPrompt = BiometricPrompt(
+                            fragmentActivity,
+                            executor,
+                            object : BiometricPrompt.AuthenticationCallback() {
+                                override fun onAuthenticationSucceeded(
+                                    result: BiometricPrompt.AuthenticationResult
+                                ) {
+                                    super.onAuthenticationSucceeded(result)
+                                    onApproveAndSign()
+                                }
+                            }
+                        )
+                        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                            .setTitle("Sign Rule Intent")
+                            .setSubtitle("Authenticate to cryptographically sign payload")
+                            .setNegativeButtonText("Cancel")
+                            .build()
+                        biometricPrompt.authenticate(promptInfo)
+                    } else {
+                        // Fallback if activity is not a FragmentActivity
+                        onApproveAndSign()
+                    }
+                }) {
                     Text("Approve & Cryptographically Sign")
                 }
             }
