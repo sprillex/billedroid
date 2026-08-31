@@ -56,5 +56,5 @@ PayloadToSign = UTF8("${X-Timestamp}\n${X-Nonce}\n${RAW_JSON_BODY}")
 ## 5. Next Milestones & Future Expansion Roadmap
 - [x] Multimodal Voice Audio Recording & Live Speech-to-Text Transcription for AI Compiler.
 - [x] `BiometricPrompt` API integration prior to rule signing authorization.
-- [ ] WebSocket / Server-Sent Events (SSE) live daemon status sync feed.
+- [x] WebSocket / Server-Sent Events (SSE) live daemon status sync feed.
 - [x] Dynamic base URL selection in Settings UI mapped to Retrofit HTTP client.
