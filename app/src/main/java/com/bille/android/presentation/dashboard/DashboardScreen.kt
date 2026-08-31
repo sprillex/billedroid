@@ -1,6 +1,8 @@
 package com.bille.android.presentation.dashboard
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,20 +10,27 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.bille.android.data.remote.api.DaemonConnectionState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -33,6 +42,10 @@ fun DashboardScreen(
 ) {
     val rules by viewModel.rules.collectAsState()
     val history by viewModel.triggerHistory.collectAsState()
+    val connectionState by viewModel.connectionState.collectAsState()
+    val daemonStatus by viewModel.daemonStatus.collectAsState()
+    val stateUpdate by viewModel.stateUpdate.collectAsState()
+
     val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
     Column(
@@ -41,11 +54,19 @@ fun DashboardScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "bill-e System Terminal",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "bill-e System Terminal",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+
+            StatusBadge(connectionState = connectionState)
+        }
 
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -60,13 +81,80 @@ fun DashboardScreen(
             ) {
                 Column {
                     Text(text = "Active Rules Installed", fontWeight = FontWeight.Bold)
-                    Text(text = "${rules.size} rule(s) active", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = "${daemonStatus?.activeRules ?: rules.size} rule(s) active",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
-                Text(
-                    text = "STATUS: ONLINE",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "DAEMON: ${daemonStatus?.status ?: connectionState.name}",
+                        color = when (connectionState) {
+                            DaemonConnectionState.ONLINE -> MaterialTheme.colorScheme.primary
+                            DaemonConnectionState.RECONNECTING -> MaterialTheme.colorScheme.tertiary
+                            DaemonConnectionState.OFFLINE -> MaterialTheme.colorScheme.error
+                        },
+                        fontWeight = FontWeight.Bold
+                    )
+                    daemonStatus?.uptimeSeconds?.let { uptime ->
+                        Text(
+                            text = "Uptime: ${uptime}s",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
+
+        stateUpdate?.let { state ->
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Live Telemetry & Sensors",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        state.indoorTemp?.let { temp ->
+                            Text(
+                                text = "Indoor: ${temp}°C",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                        state.outdoorTemp?.let { temp ->
+                            Text(
+                                text = "Outdoor: ${temp}°C",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                        state.hvacMode?.let { mode ->
+                            Text(
+                                text = "HVAC: $mode",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                        state.kpIndex?.let { kp ->
+                            Text(
+                                text = "Kp: $kp",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -150,6 +238,42 @@ fun DashboardScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun StatusBadge(
+    connectionState: DaemonConnectionState,
+    modifier: Modifier = Modifier
+) {
+    val (statusText, badgeColor) = when (connectionState) {
+        DaemonConnectionState.ONLINE -> "ONLINE" to Color(0xFF4CAF50)
+        DaemonConnectionState.RECONNECTING -> "RECONNECTING" to Color(0xFFFF9800)
+        DaemonConnectionState.OFFLINE -> "OFFLINE" to Color(0xFFF44336)
+    }
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = badgeColor.copy(alpha = 0.15f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(badgeColor, shape = CircleShape)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.labelMedium,
+                color = badgeColor,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
