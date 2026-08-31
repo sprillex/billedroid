@@ -30,6 +30,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bille.android.domain.model.BilleRule
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.IconButton
 
 @Composable
 fun RuleCompilerScreen(
@@ -39,6 +45,18 @@ fun RuleCompilerScreen(
     val uiState by viewModel.uiState.collectAsState()
     val apiKey by viewModel.apiKey.collectAsState()
     var promptText by remember { mutableStateOf("") }
+
+    val speechRecognizerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenText: String? =
+                result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.get(0)
+            if (spokenText != null) {
+                promptText = spokenText
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -67,7 +85,20 @@ fun RuleCompilerScreen(
             label = { Text("Describe the rule you want bill-e to execute...") },
             placeholder = { Text("e.g. Alert me when outdoor temp is below 68°F so I can turn off AC and open windows.") },
             modifier = Modifier.fillMaxWidth(),
-            minLines = 3
+            minLines = 3,
+            trailingIcon = {
+                IconButton(onClick = {
+                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                        putExtra(
+                            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                        )
+                    }
+                    speechRecognizerLauncher.launch(intent)
+                }) {
+                    Text("🎤")
+                }
+            }
         )
 
         Button(
