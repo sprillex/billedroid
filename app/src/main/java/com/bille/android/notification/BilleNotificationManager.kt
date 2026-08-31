@@ -50,6 +50,7 @@ class BilleNotificationManager @Inject constructor(
         }
     }
 
+    @android.annotation.SuppressLint("MissingPermission")
     fun showActionableNotification(
         notificationId: Int,
         taskId: String,

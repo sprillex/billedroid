@@ -29,12 +29,14 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(
-        signingInterceptor: SigningInterceptor
+        signingInterceptor: SigningInterceptor,
+        dynamicBaseUrlInterceptor: com.bille.android.data.remote.DynamicBaseUrlInterceptor
     ): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
         return OkHttpClient.Builder()
+            .addInterceptor(dynamicBaseUrlInterceptor)
             .addInterceptor(signingInterceptor)
             .addInterceptor(loggingInterceptor)
             .connectTimeout(15, TimeUnit.SECONDS)
