@@ -52,7 +52,8 @@ class DaemonSyncRepositoryTest {
             okHttpClient = okHttpClient,
             userPreferencesRepository = mockUserPreferencesRepository,
             triggerHistoryDao = fakeTriggerHistoryDao,
-            json = json
+            json = json,
+            scope = kotlinx.coroutines.CoroutineScope(testDispatcher)
         )
     }
 

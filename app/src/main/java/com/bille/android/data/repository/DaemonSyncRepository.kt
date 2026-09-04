@@ -31,9 +31,9 @@ class DaemonSyncRepository @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val triggerHistoryDao: TriggerHistoryDao,
-    private val json: Json
+    private val json: Json,
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
-    private val scope = CoroutineScope(Dispatchers.IO)
 
     private val _connectionState = MutableStateFlow(DaemonConnectionState.OFFLINE)
     val connectionState: StateFlow<DaemonConnectionState> = _connectionState.asStateFlow()
