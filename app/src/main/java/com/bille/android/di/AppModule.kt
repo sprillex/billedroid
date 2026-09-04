@@ -9,6 +9,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
@@ -19,5 +22,11 @@ object AppModule {
         @ApplicationContext context: Context
     ): KeystoreManager {
         return KeystoreManager(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideCoroutineScope(): CoroutineScope {
+        return CoroutineScope(Dispatchers.IO)
     }
 }
