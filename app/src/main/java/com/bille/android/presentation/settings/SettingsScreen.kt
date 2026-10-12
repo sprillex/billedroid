@@ -26,8 +26,10 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val serverUrl by viewModel.serverUrl.collectAsState()
+    val isServerUrlError by viewModel.isServerUrlError.collectAsState()
     val geminiApiKey by viewModel.geminiApiKey.collectAsState()
     val isRegistered by viewModel.isRegistered.collectAsState()
+    val registrationMessage by viewModel.registrationMessage.collectAsState()
 
     Column(
         modifier = modifier
@@ -46,6 +48,15 @@ fun SettingsScreen(
             value = serverUrl,
             onValueChange = { viewModel.updateServerUrl(it) },
             label = { Text("bill-e Daemon Base URL") },
+            isError = isServerUrlError,
+            supportingText = {
+                if (isServerUrlError) {
+                    Text(
+                        text = "Invalid URL format or port out of range (1-65535)",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -99,6 +110,15 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Register Device Key with Server")
+                }
+
+                registrationMessage?.let { message ->
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (message.startsWith("Device registered")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
                 }
             }
         }

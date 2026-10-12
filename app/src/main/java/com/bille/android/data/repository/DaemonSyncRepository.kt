@@ -17,8 +17,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.sse.EventSource
 import okhttp3.sse.EventSourceListener
@@ -48,6 +51,7 @@ class DaemonSyncRepository @Inject constructor(
     private var connectionJob: Job? = null
     private var backoffDelayMs = 1000L
     private val maxBackoffDelayMs = 30000L
+    private var usePostForSse = false
 
     fun startSync() {
         if (connectionJob != null) return
@@ -71,15 +75,39 @@ class DaemonSyncRepository @Inject constructor(
         backoffDelayMs = 1000L
 
         while (scope.coroutineContext[Job]?.isActive == true) {
-            _connectionState.value = if (backoffDelayMs == 1000L) DaemonConnectionState.RECONNECTING else DaemonConnectionState.RECONNECTING
-
             val cleanUrl = baseUrl.trimEnd('/')
             val sseUrl = "$cleanUrl/api/v1/sync/events"
 
-            val request = Request.Builder()
-                .url(sseUrl)
-                .header("Accept", "text/event-stream")
-                .build()
+            val parsedUrl = try {
+                sseUrl.toHttpUrlOrNull()
+            } catch (_: Exception) {
+                null
+            }
+
+            if (parsedUrl == null) {
+                _connectionState.value = DaemonConnectionState.OFFLINE
+                return
+            }
+
+            _connectionState.value = DaemonConnectionState.RECONNECTING
+
+            val request = try {
+                val builder = Request.Builder()
+                    .url(parsedUrl)
+                    .header("Accept", "text/event-stream")
+
+                if (usePostForSse) {
+                    val mediaType = "application/json".toMediaTypeOrNull()
+                    builder.post("{}".toRequestBody(mediaType))
+                } else {
+                    builder.get()
+                }
+
+                builder.build()
+            } catch (_: Exception) {
+                _connectionState.value = DaemonConnectionState.OFFLINE
+                return
+            }
 
             val factory = EventSources.createFactory(okHttpClient)
 
@@ -111,6 +139,15 @@ class DaemonSyncRepository @Inject constructor(
                     response: Response?
                 ) {
                     _connectionState.value = DaemonConnectionState.OFFLINE
+                    if (response?.code == 501 || response?.code == 405) {
+                        if (!usePostForSse) {
+                            usePostForSse = true
+                            backoffDelayMs = 0L
+                            if (connectedSignal.isActive) connectedSignal.complete()
+                            return
+                        }
+                    }
+                    backoffDelayMs = 1000L
                     if (connectedSignal.isActive) connectedSignal.complete()
                 }
             }

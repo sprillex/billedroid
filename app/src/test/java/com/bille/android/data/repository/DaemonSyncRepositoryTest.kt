@@ -19,6 +19,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
+import org.mockito.Mockito.`when`
 import org.mockito.Mockito.mock
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -103,5 +104,15 @@ class DaemonSyncRepositoryTest {
         assertEquals("High Temp Warning", entity.ruleName)
         assertEquals(1700000000000L, entity.triggeredAtTimestamp)
         assertEquals("DISPATCH_NOTIF", entity.actionTaken)
+    }
+
+    @Test
+    fun startSync_invalidUrl_setsStateOfflineAndDoesNotCrash() = runTest {
+        `when`(mockUserPreferencesRepository.serverUrl).thenReturn(flowOf("http://127.0.0.1:80801"))
+
+        repository.startSync()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(DaemonConnectionState.OFFLINE, repository.connectionState.value)
     }
 }
