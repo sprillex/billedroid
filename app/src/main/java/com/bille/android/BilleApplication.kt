@@ -13,6 +13,7 @@ class BilleApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.jules.orchestrator.diagnostics.AppCrashHandler.install(this)
         daemonSyncRepository.startSync()
     }
 }
