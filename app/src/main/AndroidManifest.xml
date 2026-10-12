@@ -29,6 +29,26 @@
             android:name=".notification.NotificationActionReceiver"
             android:exported="false" />
 
+        <activity
+            android:name="com.jules.orchestrator.diagnostics.CrashReportActivity"
+            android:exported="false"
+            android:process=":crash_report"
+            android:theme="@style/Theme.Billedroid" />
+
+        <activity
+            android:name="com.jules.orchestrator.diagnostics.CrashImportActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Billedroid">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/*" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
     </application>
 
 </manifest>
