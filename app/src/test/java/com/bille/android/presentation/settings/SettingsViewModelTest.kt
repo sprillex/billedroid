@@ -91,4 +91,24 @@ class SettingsViewModelTest {
         assertTrue(viewModel.isServerUrlError.value)
         verify(mockUserPreferencesRepository, never()).updateServerUrl("http://127.0.0.1:80801")
     }
+
+    @Test
+    fun registerDevice_success_updatesRegistrationMessage() = runTest {
+        `when`(mockDeviceRepository.registerDevice()).thenReturn(Result.success("dev_123"))
+
+        viewModel.registerDevice()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Device registered successfully! (ID: dev_123)", viewModel.registrationMessage.value)
+    }
+
+    @Test
+    fun registerDevice_failure_updatesRegistrationMessageWithError() = runTest {
+        `when`(mockDeviceRepository.registerDevice()).thenReturn(Result.failure(Exception("Connection refused")))
+
+        viewModel.registerDevice()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Registration failed: Connection refused", viewModel.registrationMessage.value)
+    }
 }

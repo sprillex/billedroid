@@ -29,6 +29,7 @@ fun SettingsScreen(
     val isServerUrlError by viewModel.isServerUrlError.collectAsState()
     val geminiApiKey by viewModel.geminiApiKey.collectAsState()
     val isRegistered by viewModel.isRegistered.collectAsState()
+    val registrationMessage by viewModel.registrationMessage.collectAsState()
 
     Column(
         modifier = modifier
@@ -109,6 +110,15 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Register Device Key with Server")
+                }
+
+                registrationMessage?.let { message ->
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (message.startsWith("Device registered")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
                 }
             }
         }
