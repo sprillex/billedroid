@@ -20,6 +20,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.sse.EventSource
 import okhttp3.sse.EventSourceListener
@@ -49,6 +50,7 @@ class DaemonSyncRepository @Inject constructor(
     private var connectionJob: Job? = null
     private var backoffDelayMs = 1000L
     private val maxBackoffDelayMs = 30000L
+    private var usePostForSse = false
 
     fun startSync() {
         if (connectionJob != null) return
@@ -89,10 +91,17 @@ class DaemonSyncRepository @Inject constructor(
             _connectionState.value = DaemonConnectionState.RECONNECTING
 
             val request = try {
-                Request.Builder()
+                val builder = Request.Builder()
                     .url(parsedUrl)
                     .header("Accept", "text/event-stream")
-                    .build()
+
+                if (usePostForSse) {
+                    builder.post(ByteArray(0).toRequestBody(null, 0, 0))
+                } else {
+                    builder.get()
+                }
+
+                builder.build()
             } catch (_: Exception) {
                 _connectionState.value = DaemonConnectionState.OFFLINE
                 return
@@ -128,6 +137,12 @@ class DaemonSyncRepository @Inject constructor(
                     response: Response?
                 ) {
                     _connectionState.value = DaemonConnectionState.OFFLINE
+                    if (response?.code == 501 || response?.code == 405) {
+                        if (!usePostForSse) {
+                            usePostForSse = true
+                            backoffDelayMs = 0L
+                        }
+                    }
                     if (connectedSignal.isActive) connectedSignal.complete()
                 }
             }
