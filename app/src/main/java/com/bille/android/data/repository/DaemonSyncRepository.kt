@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -71,15 +72,31 @@ class DaemonSyncRepository @Inject constructor(
         backoffDelayMs = 1000L
 
         while (scope.coroutineContext[Job]?.isActive == true) {
-            _connectionState.value = if (backoffDelayMs == 1000L) DaemonConnectionState.RECONNECTING else DaemonConnectionState.RECONNECTING
-
             val cleanUrl = baseUrl.trimEnd('/')
             val sseUrl = "$cleanUrl/api/v1/sync/events"
 
-            val request = Request.Builder()
-                .url(sseUrl)
-                .header("Accept", "text/event-stream")
-                .build()
+            val parsedUrl = try {
+                sseUrl.toHttpUrlOrNull()
+            } catch (_: Exception) {
+                null
+            }
+
+            if (parsedUrl == null) {
+                _connectionState.value = DaemonConnectionState.OFFLINE
+                return
+            }
+
+            _connectionState.value = DaemonConnectionState.RECONNECTING
+
+            val request = try {
+                Request.Builder()
+                    .url(parsedUrl)
+                    .header("Accept", "text/event-stream")
+                    .build()
+            } catch (_: Exception) {
+                _connectionState.value = DaemonConnectionState.OFFLINE
+                return
+            }
 
             val factory = EventSources.createFactory(okHttpClient)
 
