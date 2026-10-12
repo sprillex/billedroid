@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -96,7 +97,8 @@ class DaemonSyncRepository @Inject constructor(
                     .header("Accept", "text/event-stream")
 
                 if (usePostForSse) {
-                    builder.post(ByteArray(0).toRequestBody(null, 0, 0))
+                    val mediaType = "application/json".toMediaTypeOrNull()
+                    builder.post("{}".toRequestBody(mediaType))
                 } else {
                     builder.get()
                 }
@@ -141,8 +143,11 @@ class DaemonSyncRepository @Inject constructor(
                         if (!usePostForSse) {
                             usePostForSse = true
                             backoffDelayMs = 0L
+                            if (connectedSignal.isActive) connectedSignal.complete()
+                            return
                         }
                     }
+                    backoffDelayMs = 1000L
                     if (connectedSignal.isActive) connectedSignal.complete()
                 }
             }
