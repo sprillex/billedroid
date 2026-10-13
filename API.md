@@ -29,13 +29,15 @@ To ensure non-repudiation and prevent unauthorized automated action execution, s
   - **Digest & Signature**: `SHA256withECDSA`
   - **Hardware Security**: Enforced StrongBox backing with TEE fallback.
 - **Canonical Payload Signing Format**:
-  Signatures are generated over the exact UTF-8 raw bytes formed by joining `X-Timestamp`, `X-Nonce`, and the raw HTTP JSON body with newlines:
+  Signatures are generated using HMAC-SHA256 over `(nonce + timestamp).encode("utf-8") + raw_body_json_bytes` using the registered device's PEM public key string (`public_key_pem`) as the secret key:
   ```
-  PayloadToSign = UTF8("${X-Timestamp}\n${X-Nonce}\n${RAW_JSON_BODY}")
+  canonical_str = nonce + timestamp
+  payload_bytes = canonical_str.encode("utf-8") + raw_body_json_bytes
+  X-Signature = Base64(HMAC-SHA256(secretKey = public_key_pem, message = payload_bytes))
   ```
 - **Required HTTP Headers**:
   - `X-Device-ID`: Lowercase SHA-256 hex fingerprint of the device's X.509/PEM public key.
-  - `X-Signature`: Base64-encoded signature of `PayloadToSign`.
+  - `X-Signature`: Base64-encoded HMAC-SHA256 signature over `payload_bytes`.
   - `X-Nonce`: Random UUID v4 string.
   - `X-Timestamp`: ISO-8601 UTC timestamp string (e.g., `2026-08-30T21:15:00Z`).
 
@@ -78,17 +80,36 @@ When an API request fails, responses return a JSON payload formatted as follows:
 
 ## 4. Endpoints by Resource
 
-### A. Device Registration (`POST /api/v1/devices/register`)
+### A. Server Health & Status (`GET /api/v1/status`)
 
+Returns overall daemon service health and version metadata.
+
+- **HTTP Method**: `GET`
+- **Path**: `/api/v1/status`
+- **Access / Permissions**: Open / Public.
+
+#### Response Schema (`200 OK`)
+```json
+{
+  "status": "ok",
+  "service": "bill-e",
+  "version": "1.0.0"
+}
+```
+
+---
+
+### B. Device Registration & Query Endpoints
+
+#### `POST /api/v1/devices/register`
 Registers an Android device and its hardware-backed public key with the `bill-e` home daemon.
 
 - **HTTP Method**: `POST`
 - **Path**: `/api/v1/devices/register`
 - **Access / Permissions**: Public / Unauthenticated initial registration.
-- **Headers**:
-  - `Content-Type: application/json`
+- **Headers**: `Content-Type: application/json`
 
-#### Request Body Schema
+##### Request Body Schema
 
 | Field Name | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
@@ -104,22 +125,75 @@ Registers an Android device and its hardware-backed public key with the `bill-e`
 }
 ```
 
-#### Response Schemas
-
-- **Success (`200 OK` / `201 Created`)**:
+##### Response Schemas
+- **Success (`200 OK`)**:
   ```json
   {
     "status": "registered",
     "device_id": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   }
   ```
-- **Known Errors**:
-  - `400 Bad Request`: Invalid public key format or missing parameters.
-  - `422 Unprocessable Entity`: Malformed device ID checksum.
+
+#### `GET /api/v1/devices`
+Lists all registered companion devices.
+
+- **HTTP Method**: `GET`
+- **Path**: `/api/v1/devices`
+- **Access / Permissions**: Open / Public.
+
+##### Response Schema (`200 OK`)
+```json
+{
+  "status": "success",
+  "count": 1,
+  "devices": [
+    {
+      "device_id": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "device_name": "User's Pixel 8",
+      "registered_at": "2026-08-30T21:00:00+00:00"
+    }
+  ]
+}
+```
 
 ---
 
-### B. Signed Rule Installation (`POST /api/rules/install`)
+### C. Rule Lifecycle Endpoints
+
+#### `GET /api/rules`
+Lists all currently installed automation rules.
+
+- **HTTP Method**: `GET`
+- **Path**: `/api/rules`
+- **Access / Permissions**: Open / Public.
+
+##### Response Schema (`200 OK`)
+```json
+{
+  "status": "success",
+  "count": 1,
+  "rules": [
+    {
+      "task_id": "hvac_cooling_advisory",
+      "name": "HVAC Natural Cooling Advisory",
+      "cooldown_hours": 4,
+      "conditions": {
+        "all": [
+          {"source": "hvac.ac_status", "operator": "equals", "value": "on"}
+        ]
+      },
+      "action": {
+        "title": "HVAC Cooling Advisory",
+        "message": "Outdoor temp is pleasant.",
+        "actions": ["Done", "Snooze"]
+      }
+    }
+  ]
+}
+```
+
+#### `POST /api/rules/install`
+Installs a compiled automation rule payload onto the daemon. Requires valid cryptographic intent signature headers.
 
 Installs a compiled automation rule payload onto the daemon. Requires valid cryptographic intent signature headers.
 
@@ -143,8 +217,8 @@ Installs a compiled automation rule payload onto the daemon. Requires valid cryp
 | `conditions` | Object | Yes | Rule trigger logic specifying `all` or `any` condition arrays. |
 | `conditions.all` | Array | No | List of conditions that must all evaluate to true. |
 | `conditions.any` | Array | No | List of conditions where at least one must evaluate to true. |
-| `condition.source` | String | Yes | Sensor or entity state string (e.g. `"indoor.temperature"`). |
-| `condition.operator` | String | Yes | Operator: `equals`, `not_equals`, `gt`, `gte`, `lt`, `lte`, `between`, `in`, `contains`. |
+| `condition.source` | String | Yes | Sensor or entity state string. Must start with allowed namespace (`hvac`, `weather`, `trash`, `aurora`, `astronomy`, `sensors`, `calendar`, `health`, `power`, `appliances`, `garage`, `vehicle`). |
+| `condition.operator` | String | Yes | Operator: `gte`, `lte`, `gt`, `lt`, `equals`, `eq`, `ne`, `in`, `between`, `not_equals`, `contains`. |
 | `condition.value` | Any | Yes | String, Number, Boolean, `[min, max]` number array, or String array. |
 | `action` | Object | Yes | Action payload to execute on trigger. |
 | `action.title` | String | Yes | Notification header title. |
@@ -187,11 +261,26 @@ Installs a compiled automation rule payload onto the daemon. Requires valid cryp
 - **Known Errors**:
   - `400 Bad Request`: Payload formatting error or expired timestamp (`abs(now - timestamp) > 300s`).
   - `401 Unauthorized`: Invalid signature or unknown `X-Device-ID`.
-  - `422 Unprocessable Entity`: Invalid condition operator or invalid field structure.
+  - `422 Unprocessable Entity`: Invalid condition operator, unauthorized namespace, or invalid field structure.
+
+#### `DELETE /api/rules/<task_id>`
+Deletes / uninstalls specified rule from daemon.
+
+- **HTTP Method**: `DELETE`
+- **Path**: `/api/rules/{task_id}`
+- **Access / Permissions**: Open / Public.
+
+##### Response Schema (`200 OK`)
+```json
+{
+  "status": "deleted",
+  "task_id": "hvac_cooling_advisory"
+}
+```
 
 ---
 
-### C. Live Daemon Event Stream (`GET /api/v1/sync/events`)
+### D. Live Daemon Event Stream (`GET /api/v1/sync/events`)
 
 Server-Sent Events (SSE) HTTP connection for streaming real-time status updates, sensor telemetry, and execution trigger events.
 
@@ -239,7 +328,7 @@ Server-Sent Events (SSE) HTTP connection for streaming real-time status updates,
 
 ---
 
-### D. Gemini AI Rule Compiler (`POST /v1beta/models/gemini-1.5-flash:generateContent`)
+### E. Gemini AI Rule Compiler (`POST /v1beta/models/gemini-1.5-flash:generateContent`)
 
 Generates structured JSON rule schemas from natural language text prompts or audio transcriptions using Google Gemini 1.5 Flash.
 

@@ -11,6 +11,8 @@ import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.Signature
 import java.security.MessageDigest
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -87,16 +89,35 @@ class KeystoreManager @Inject constructor(
     }
 
     /**
-     * Signs canonical UTF-8 bytes payload: "${X-Timestamp}\n${X-Nonce}\n${RAW_JSON_BODY}"
+     * Signs payload using HMAC-SHA256 over: (nonce + timestamp).toByteArray(UTF_8) + rawBodyBytes
+     * using the device's public key string (public_key_pem) as the secret key.
+     * Returns Base64-encoded signature string.
+     */
+    fun signPayload(nonce: String, timestamp: String, rawBodyBytes: ByteArray): String {
+        val canonicalHeaderStr = nonce + timestamp
+        val canonicalHeaderBytes = canonicalHeaderStr.toByteArray(Charsets.UTF_8)
+        val payloadBytes = canonicalHeaderBytes + rawBodyBytes
+
+        val publicKeyPem = getPublicKeyPem()
+        val secretKey = SecretKeySpec(publicKeyPem.toByteArray(Charsets.UTF_8), "HmacSHA256")
+        val mac = Mac.getInstance("HmacSHA256")
+        mac.init(secretKey)
+        val hmacBytes = mac.doFinal(payloadBytes)
+
+        return Base64.encodeToString(hmacBytes, Base64.NO_WRAP)
+    }
+
+    /**
+     * Signs string payload using HMAC-SHA256 with device public_key_pem as secret key.
      * Returns Base64-encoded signature string.
      */
     fun signPayload(canonicalPayload: String): String {
-        val privateKeyEntry = getOrCreateKeyPair()
-        val signature = Signature.getInstance(SIGNING_ALGORITHM).apply {
-            initSign(privateKeyEntry.privateKey)
-            update(canonicalPayload.toByteArray(Charsets.UTF_8))
-        }
-        val signatureBytes = signature.sign()
-        return Base64.encodeToString(signatureBytes, Base64.NO_WRAP)
+        val publicKeyPem = getPublicKeyPem()
+        val secretKey = SecretKeySpec(publicKeyPem.toByteArray(Charsets.UTF_8), "HmacSHA256")
+        val mac = Mac.getInstance("HmacSHA256")
+        mac.init(secretKey)
+        val hmacBytes = mac.doFinal(canonicalPayload.toByteArray(Charsets.UTF_8))
+
+        return Base64.encodeToString(hmacBytes, Base64.NO_WRAP)
     }
 }

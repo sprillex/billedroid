@@ -15,14 +15,18 @@ class RuleSchemaValidator @Inject constructor(
     private val json: Json
 ) {
     companion object {
-        private val VALID_OPERATORS = setOf(
-            "equals", "not_equals", "gt", "gte", "lt", "lte", "between", "in", "contains"
+        val ALLOWED_NAMESPACES = setOf(
+            "hvac", "weather", "trash", "aurora", "astronomy", "sensors",
+            "calendar", "health", "power", "appliances", "garage", "vehicle"
+        )
+        val VALID_OPERATORS = setOf(
+            "gte", "lte", "gt", "lt", "equals", "eq", "ne", "in", "between", "not_equals", "contains"
         )
     }
 
     /**
      * Validates raw JSON string output from Gemini or local input.
-     * Enforces bill-e schema guardrails: task_id, name, conditions, operators, and action format.
+     * Enforces bill-e schema guardrails: task_id, name, conditions, operators, allowed namespaces, and action format.
      */
     fun validate(rawJson: String): ValidationResult {
         return try {
@@ -42,6 +46,12 @@ class RuleSchemaValidator @Inject constructor(
             for (cond in allConditions) {
                 if (cond.source.isBlank()) {
                     return ValidationResult.Failure("condition source cannot be blank")
+                }
+                val namespace = cond.source.trim().substringBefore('.')
+                if (namespace.lowercase() !in ALLOWED_NAMESPACES) {
+                    return ValidationResult.Failure(
+                        "Schema guardrail validation failed: Unauthorized source namespace '$namespace'. Allowed: $ALLOWED_NAMESPACES"
+                    )
                 }
                 if (cond.operator.lowercase() !in VALID_OPERATORS) {
                     return ValidationResult.Failure("invalid condition operator '${cond.operator}'. Allowed: $VALID_OPERATORS")

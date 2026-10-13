@@ -57,7 +57,7 @@ class RuleSchemaValidatorTest {
           "name": "Invalid Operator Test",
           "conditions": {
             "all": [
-              {"source": "sensor.temp", "operator": "invalid_op", "value": 100}
+              {"source": "sensors.temp", "operator": "invalid_op", "value": 100}
             ]
           },
           "action": {
@@ -71,5 +71,29 @@ class RuleSchemaValidatorTest {
         assertTrue(result is ValidationResult.Failure)
         val failure = result as ValidationResult.Failure
         assertTrue(failure.error.contains("invalid condition operator"))
+    }
+
+    @Test
+    fun testUnauthorizedNamespaceValidation() {
+        val invalidJson = """
+        {
+          "task_id": "unauthorized_namespace_test",
+          "name": "Unauthorized Namespace Test",
+          "conditions": {
+            "all": [
+              {"source": "unauthorized.temp", "operator": "gt", "value": 100}
+            ]
+          },
+          "action": {
+            "title": "Test",
+            "message": "Test message"
+          }
+        }
+        """.trimIndent()
+
+        val result = validator.validate(invalidJson)
+        assertTrue(result is ValidationResult.Failure)
+        val failure = result as ValidationResult.Failure
+        assertTrue(failure.error.contains("Unauthorized source namespace 'unauthorized'"))
     }
 }
