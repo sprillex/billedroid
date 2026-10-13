@@ -38,8 +38,9 @@ Strict JSON Output Format:
 
 Rules & Constraints:
 1. Output ONLY valid JSON matching the exact schema above. No markdown formatting outside of JSON.
-2. Operator must be one of: equals, not_equals, gt, gte, lt, lte, between, in, contains.
-3. Keep task_id short, unique, and snake_case.
+2. Condition source must start with one of the allowed namespaces: hvac, weather, trash, aurora, astronomy, sensors, calendar, health, power, appliances, garage, vehicle.
+3. Operator must be one of: gte, lte, gt, lt, equals, eq, ne, in, between, not_equals, contains.
+4. Keep task_id short, unique, and snake_case.
 """
     }
 

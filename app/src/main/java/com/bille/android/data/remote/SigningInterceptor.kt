@@ -23,18 +23,17 @@ class SigningInterceptor @Inject constructor(
             return chain.proceed(originalRequest)
         }
 
-        val rawJsonBody = originalRequest.body?.let { body ->
+        val rawJsonBodyBytes = originalRequest.body?.let { body ->
             val buffer = Buffer()
             body.writeTo(buffer)
-            buffer.readUtf8()
-        } ?: ""
+            buffer.readByteArray()
+        } ?: ByteArray(0)
 
         val timestamp = DateTimeFormatter.ISO_INSTANT.format(Instant.now())
         val nonce = UUID.randomUUID().toString()
         val deviceId = keystoreManager.getDeviceId()
 
-        val canonicalPayload = "$timestamp\n$nonce\n$rawJsonBody"
-        val signature = keystoreManager.signPayload(canonicalPayload)
+        val signature = keystoreManager.signPayload(nonce, timestamp, rawJsonBodyBytes)
 
         val signedRequest = originalRequest.newBuilder()
             .header("X-Device-ID", deviceId)

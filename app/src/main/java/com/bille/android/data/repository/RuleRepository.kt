@@ -39,4 +39,31 @@ class RuleRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
+    suspend fun deleteRule(taskId: String): Result<Unit> {
+        return try {
+            val response = billeApiService.deleteRule(taskId)
+            if (response.status == "deleted") {
+                ruleDao.deleteRule(taskId)
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Deletion returned status: ${response.status}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchInstalledRulesFromDaemon(): Result<List<BilleRule>> {
+        return try {
+            val response = billeApiService.getRules()
+            if (response.status == "success") {
+                Result.success(response.rules)
+            } else {
+                Result.failure(Exception("Get rules returned status: ${response.status}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
